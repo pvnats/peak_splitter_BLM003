@@ -4,16 +4,26 @@ from tkinter import *
 from tkinter import filedialog
 
 class Peaks:
-    def __init__(self, start_value, terminal_value, file_path):
-        self.data_dict = {'time': []}
-        self.start_value = start_value
-        self.terminal_value = terminal_value
-        self.input_filename = file_path
-        self.output_filename = file_path.split('/')[-1][:-4]
-      
+    def __init__(self):
+        self.data_dict = {}
+        self.start_value = 100
+        self.terminal_value = 0
+        self.input_filename = ''
+        self.output_filename = ''
+    
+    def set_value(self, start_value, terminal_value):
+        self.start_value = int(start_value)
+        self.terminal_value = int(terminal_value)       
+    
+    def set_filename(self, filepath):
+        self.input_filename = filepath
+        self.output_filename = filepath.split('/')[-1][:-4] + '_output'
+             
     def convert_data(self):  # Конвертируем сырые данные с добавлением временных интервалов
     
-        with open(input_filename, "r", encoding="ANSI") as input_file:
+        with open(self.input_filename, "r", encoding="ANSI") as input_file:
+            
+            temp_data_dict = {'time': []}
         
             # Ищем использованную частоту отсчетов (временные интервалы) 
             for _ in range(10):
@@ -80,7 +90,7 @@ class Peaks:
                         # Задаем порядковый номер колонки
                         column_name = f'Column {counter}'
                         # Добавляем значения в словарь
-                        self.data_dict[column_name] = self.data_dict.get(column_name, []) + [int(prev_digit)]
+                        temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(prev_digit)]
                         prev_digit = next_digit
                     # в противном случае уходим на следующий шаг
                     else:
@@ -88,67 +98,58 @@ class Peaks:
             
             # Добавляем в словарь последнее значение после остановки цикла
             if int(prev_digit) > 0 and start_flag == True and terminal_flag == True:
-                self.data_dict[column_name] = self.data_dict.get(column_name, []) + [int(prev_digit)]
+                temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(prev_digit)]
      
             # Вычисляем самую длинную колонку
-            max_col_len = max([len(x) for x in self.data_dict.values()])
+            max_col_len = max([len(x) for x in temp_data_dict.values()])
         
             # Генерируем временные точки согласно использованному временному интервалу отсчета
-            self.data_dict['time'] = [i / time_counter for i in range(1, max_col_len + 1, 1)]
+            temp_data_dict['time'] = [i / time_counter for i in range(1, max_col_len + 1, 1)]
         
             # Выравниваем колонки с данными измерений по длине добавлением None
-            for key in self.data_dict.keys():
-               self.data_dict[key] = self.data_dict.get(key, []) + [None] * (max_col_len - len(self.data_dict[key]))
+            for key in temp_data_dict.keys():
+               temp_data_dict[key] = temp_data_dict.get(key, []) + [None] * (max_col_len - len(temp_data_dict[key]))
+               
+            self.data_dict = temp_data_dict
         
-        def get_data(self):
-            # Переводим сконвертированные данные в pd.DataFrame
-            final_df = pd.DataFrame(self.data_dict)   
+    def get_data(self):
+        # Переводим сконвертированные данные в pd.DataFrame
+        final_df = pd.DataFrame(self.data_dict)   
         
-            return final_df
+        return final_df
 
 
-
+splitted_peaks = Peaks()        
     
 def open_file():
-    global input_filename
-    global output_filename
-    file_path = filedialog.askopenfilename(title="Open file", filetypes=(("BLM003_file (*.dat)", "*.dat"), ("All files", "*.*")))
+    filepath = filedialog.askopenfilename(title="Open file", filetypes=(("BLM003_file (*.dat)", "*.dat"), ("All files", "*.*")))
     
-    if file_path != "":
-        input_filename = file_path
-        output_filename = file_path.split('/')[-1][:-4]
-        
+    if filepath != "":
         # Кнопка Calculate становится активной
         btn_calc.config(state="normal", cursor="hand2")
-    
-def save_file(splitted_peaks.getdata()):  # Сохраняем выходные данные в csv файл
+            
+        splitted_peaks.set_filename(filepath)
+           
+def save_file(data):  # Сохраняем выходные данные в csv файл
     # Задаем путь сохранения файла
     filepath = filedialog.asksaveasfilename(
         defaultextension="csv",
-        initialfile=output_filename,
+        initialfile=data.output_filename,
         filetypes=[("Comma Delimited", ".csv")],
     )
     
     # Сохраняем если путь задан корректно
     if filepath != "":
-        final_df.to_csv(filepath, sep=',', index=False)
+        data.get_data().to_csv(filepath, sep=',', index=False)
+    
 
 def start_calculation():    
     # Вызываем функцию конвертирования данных и сохраняем результат(словарь) в переменную
-    final_df = convert_data()
-    save_file(final_df) 
+        
+    splitted_peaks.set_value(start_value_entry.get(), terminal_value_entry.get())
+    splitted_peaks.convert_data()
+    save_file(splitted_peaks)   
     
-    # start new code
-    start_value = int(start_value_entry.get())
-    terminal_value = int(terminal_value_entry.get())
-            
-    splitted_peaks = Peaks(start_value, terminal_value)    
-    # end new code
-
-
-input_filename = "C:/"
-output_filename = "new.csv"
- 
     
 root = Tk()
 root.geometry("500x300+800+300")
