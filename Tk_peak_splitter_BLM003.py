@@ -45,10 +45,10 @@ class Peaks:
             # Columns counter
             counter = 1
             
-            # A flag for starting to record values ​​into a column when a 'start_value' is reached.
+            # A flag to start values record ​​into the temp_data_dict when a 'start_value' is reached.
             start_flag = False
         
-            # A flag for finishing to record values ​​into a column when a 'terminal_value' is reached. 
+            # A flag to finish values record ​​into the temp+data_dict when a 'terminal_value' is reached. 
             terminal_flag = True
         
             # Line-by-line data analysis to find and separate peaks    
@@ -64,12 +64,12 @@ class Peaks:
                     continue
             
                 # Finds the column 'separator' (by default, the digit 0)
-                # By default the system records the '0' signal at the time of samples changing
+                # By default the BLM003 system writes the '0' signal at the time of samples changing
                 if int(curr_digit) == 0:
-                    # Switch off the start record because of '0'
+                    # Switch off the record because of '0'
                     start_flag = False
                 
-                    # Switch on the terminal flag to prepare for the next column(peak) data set
+                    # Terminal flag is on to prepare for the next column(peak) data set
                     terminal_flag = True
                 
                     # If current digit == 'separator' and next digit == 'separator', go to next step 
@@ -84,45 +84,45 @@ class Peaks:
                     
                 # If recording is on — meaning a 'start_value' was found in previous cycles, 
                 # but the current value < 'terminal_value' in the current cycle
-                # then switches off 'terminal_flag' and stops recording                
+                # then 'terminal_flag' == False and stops recording                
                 if start_flag == True and int(curr_digit) <= self.terminal_value:
                     terminal_flag = False
             
-                # switches on 'start_flag' if 'start_value'
+                # Switches on 'start_flag' if 'start_value'
                 if int(curr_digit) >= self.start_value:
                     start_flag = True            
             
-                # Работаем с цифровыми значениями, которые больше значения 'разделителя'
+                # Main step
                 if int(curr_digit) > 0:
-                    # если флаг начала записи и окончания записи включены
+                    # If both flags
                     if start_flag == True  and terminal_flag == True:
-                        # Задаем порядковый номер колонки
+                        # Sets the column number
                         column_name = f'Column {counter}'
-                        # Добавляем значения в словарь
+                        # Records values to the dict
                         temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(curr_digit)]
                         curr_digit = next_digit
-                    # в противном случае уходим на следующий шаг
+                    # If not go to the next cycle
                     else:
                         curr_digit = next_digit
             
-            # Добавляем в словарь последнее значение после остановки цикла
+            # Appends the last value to the dict after the last cycle
             if int(curr_digit) > 0 and start_flag == True and terminal_flag == True:
                 temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(curr_digit)]
      
-            # Вычисляем самую длинную колонку
+            # Finds the longest column
             max_col_len = max([len(x) for x in temp_data_dict.values()])
         
-            # Генерируем временные точки согласно использованному временному интервалу отсчета
+            # Adds time points according the used time counting intervals
             temp_data_dict['time'] = [i / time_counter for i in range(1, max_col_len + 1, 1)]
         
-            # Выравниваем колонки с данными измерений по длине добавлением None
+            # Aligns data columns length using None
             for key in temp_data_dict.keys():
                temp_data_dict[key] = temp_data_dict.get(key, []) + [None] * (max_col_len - len(temp_data_dict[key]))
                
             self.data_dict = temp_data_dict
         
     def get_data(self):
-        # Переводим сконвертированные данные в pd.DataFrame
+        # Converts to pandas pd.DataFrame
         final_df = pd.DataFrame(self.data_dict)   
         
         return final_df
@@ -131,29 +131,33 @@ class Peaks:
 splitted_peaks = Peaks()        
     
 def open_file():
+    """Opens the data file"""
+    
     filepath = filedialog.askopenfilename(title="Open file", filetypes=(("BLM003_file (*.dat)", "*.dat"), ("All files", "*.*")))
     
     if filepath != "":
-        # Кнопка Calculate становится активной
+        # Activates Calculate button
         btn_calc.config(state="normal", cursor="hand2")
             
         splitted_peaks.set_filename(filepath)
            
-def save_file(data):  # Сохраняем выходные данные в csv файл
-    # Задаем путь сохранения файла
+def save_file(data):  
+    """Saves the final data to csv file"""
+    
+    # Chooses the file path
     filepath = filedialog.asksaveasfilename(
         defaultextension="csv",
         initialfile=data.output_filename,
         filetypes=[("Comma Delimited", ".csv")],
     )
     
-    # Сохраняем если путь задан корректно
+    # Saves if the filepath is not empty
     if filepath != "":
         data.get_data().to_csv(filepath, sep=',', index=False)
     
 
-def start_calculation():    
-    # Вызываем функцию конвертирования данных и сохраняем результат(словарь) в переменную
+def start_calculation():
+    """Starts calculations and saves the data"""    
         
     splitted_peaks.set_value(start_value_entry.get(), terminal_value_entry.get())
     splitted_peaks.convert_data()
