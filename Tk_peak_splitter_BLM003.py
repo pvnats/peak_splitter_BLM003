@@ -3,6 +3,13 @@ from re import search
 from tkinter import *
 from tkinter import filedialog
 
+"""
+Peak splitter by pvnats
+Finds and separates signal peaks 
+from a single line raw data 
+obtained by a BLM003 bioluminometer
+"""
+
 class Peaks:
     def __init__(self):
         self.data_dict = {}
@@ -19,86 +26,88 @@ class Peaks:
         self.input_filename = filepath
         self.output_filename = filepath.split('/')[-1][:-4] + '_output'
              
-    def convert_data(self):  # Конвертируем сырые данные с добавлением временных интервалов
-    
+    def convert_data(self):  
+        """Finds and separates signal peaks. Adds time interavals"""
+        
         with open(self.input_filename, "r", encoding="ANSI") as input_file:
             
             temp_data_dict = {'time': []}
         
-            # Ищем использованную частоту отсчетов (временные интервалы) 
+            # Finds time intervals in log info 
             for _ in range(10):
-                prev_digit = input_file.readline().strip()
-                time_match = search(r'Частота отсчетов:\s+\d{1,3}$', prev_digit)
+                curr_digit = input_file.readline().strip()
+                time_match = search(r'Частота отсчетов:\s+\d{1,3}$', curr_digit)
                 if time_match:
-                    digit = search(r'\d{1,3}', prev_digit)
+                    digit = search(r'\d{1,3}', curr_digit)
                     time_counter = int(digit.group())
                     break
         
-            # Задаем счетчик для разделения данных измерений на колонки
+            # Columns counter
             counter = 1
             
-            # Флаг начала записи значений в колонку при достижении заданного start_value
+            # A flag for starting to record values ​​into a column when a 'start_value' is reached.
             start_flag = False
         
-            # Флаг окончания записи значений в колонку при достижении заданного terminal_value
+            # A flag for finishing to record values ​​into a column when a 'terminal_value' is reached. 
             terminal_flag = True
         
-            # Анализируем файл в поиске цифровых значений и разбиваем их на отдельные колонки    
+            # Line-by-line data analysis to find and separate peaks    
             while True:
                 next_digit = input_file.readline().strip()
-                # Определяем конец файла и останавливаем цикл
+                # Stops the cycle when the file ends
                 if not next_digit:
                     break
             
-                # Игнорируем строчки, содержащие вспомогательную информацию
-                if prev_digit[0] == '/':  
-                    prev_digit = next_digit
+                # Skips lines containing information from the log
+                if curr_digit[0] == '/':  
+                    curr_digit = next_digit
                     continue
             
-                # Находим цифровые значения и работаем с 'разделителем' колонок (по умолчанию цифра 0)
-                if int(prev_digit) == 0:
-                    # отключаем флаг так как обнаружен 0
+                # Finds the column 'separator' (by default, the digit 0)
+                # By default the system records the '0' signal at the time of samples changing
+                if int(curr_digit) == 0:
+                    # Switch off the start record because of '0'
                     start_flag = False
                 
-                    # включаем терминальный флаг записи, так как начинается следующая колонка
+                    # Switch on the terminal flag to prepare for the next column(peak) data set
                     terminal_flag = True
                 
-                    # если текущее значение и следующее значение == разделитель, идем на следующий шаг 
+                    # If current digit == 'separator' and next digit == 'separator', go to next step 
                     if int(next_digit) == 0:
-                        prev_digit = next_digit
+                        curr_digit = next_digit
                         continue
-                    # если текущее значение разделитель, а следующее - данные, то  изменяем счетчик           
+                    # If current digit == 'separator' and next digit == signal data ( > 'separator), change the counter           
                     elif int(next_digit) > 0:
                         counter += 1                
-                        prev_digit = next_digit
+                        curr_digit = next_digit
                         continue
-            
-                # Если запись включена, т.е. на предыдущих циклах было найдено start_value,
-                # но на текущем цикле обнаружено значение ниже terminal_value
-                # то выключаем флаг и останавливаем запись
-                if start_flag == True and int(prev_digit) <= self.terminal_value:
+                    
+                # If recording is on — meaning a 'start_value' was found in previous cycles, 
+                # but the current value < 'terminal_value' in the current cycle
+                # then switches off 'terminal_flag' and stops recording                
+                if start_flag == True and int(curr_digit) <= self.terminal_value:
                     terminal_flag = False
             
-                # Переключаем флаг на запись при обнаружении start_value
-                if int(prev_digit) >= self.start_value:
+                # switches on 'start_flag' if 'start_value'
+                if int(curr_digit) >= self.start_value:
                     start_flag = True            
             
                 # Работаем с цифровыми значениями, которые больше значения 'разделителя'
-                if int(prev_digit) > 0:
+                if int(curr_digit) > 0:
                     # если флаг начала записи и окончания записи включены
                     if start_flag == True  and terminal_flag == True:
                         # Задаем порядковый номер колонки
                         column_name = f'Column {counter}'
                         # Добавляем значения в словарь
-                        temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(prev_digit)]
-                        prev_digit = next_digit
+                        temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(curr_digit)]
+                        curr_digit = next_digit
                     # в противном случае уходим на следующий шаг
                     else:
-                        prev_digit = next_digit
+                        curr_digit = next_digit
             
             # Добавляем в словарь последнее значение после остановки цикла
-            if int(prev_digit) > 0 and start_flag == True and terminal_flag == True:
-                temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(prev_digit)]
+            if int(curr_digit) > 0 and start_flag == True and terminal_flag == True:
+                temp_data_dict[column_name] = temp_data_dict.get(column_name, []) + [int(curr_digit)]
      
             # Вычисляем самую длинную колонку
             max_col_len = max([len(x) for x in temp_data_dict.values()])
